@@ -1,0 +1,58 @@
+// Prisma schema — 日本選品店情報聚合平台
+// 文件: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// 選品店 (例: ARKnets, 1LDK, LOFTMAN)
+model Shop {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique // 選品店名稱
+  url       String // 選品店官網首頁
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+
+  @@map("shops")
+}
+
+/// 品牌 (例: AURALEE, COMOLI)
+model Brand {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique // 品牌名稱，正規化後作為搜尋鍵
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+
+  @@map("brands")
+}
+
+/// 商品 — 同一件實體商品在不同選品店會是不同的 Product row
+model Product {
+  id         Int      @id @default(autoincrement())
+  name       String // 商品名稱
+  priceYen   Int? // 原廠售價 (日圓，整數。null = 未知/未公開)
+  imageUrl   String? // 主要商品圖片網址
+  productUrl String   @unique // 原始商品詳細頁連結 — 作為 upsert 的唯一鍵
+  inStock    Boolean  @default(true) // 庫存狀態
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // ---- 關聯 ----
+  shopId  Int
+  shop    Shop  @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  brandId Int
+  brand   Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId])
+  @@index([shopId])
+  @@map("products")
+}

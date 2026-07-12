@@ -1,0 +1,43 @@
+# ---- Dependencies ----
+node_modules/
+.pnp/
+.pnp.js
+
+# ---- Build output ----
+dist/
+build/
+.next/
+out/
+
+# ---- Env / secrets ----
+.env
+.env.local
+.env.*.local
+
+# ---- Prisma ----
+# 保留 schema 與 migrations，但忽略本機產生的 SQLite/暫存檔
+*.db
+*.db-journal
+
+# ---- Logs ----
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---- 本機 Chromium 系統函式庫 (無 sudo 環境的 fallback，見 README) ----
+/backend/.native-libs/
+
+# ---- Playwright ----
+/backend/playwright-report/
+/backend/test-results/
+/backend/scraped/           # 爬蟲輸出的暫存 JSON / 截圖
+
+# ---- OS / Editor ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

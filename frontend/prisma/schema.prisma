@@ -1,0 +1,50 @@
+// 前端以唯讀方式共用後端的資料庫；schema 與 backend/prisma/schema.prisma 相同。
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Shop {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  url       String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  products  Product[]
+
+  @@map("shops")
+}
+
+model Brand {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  products  Product[]
+
+  @@map("brands")
+}
+
+model Product {
+  id         Int      @id @default(autoincrement())
+  name       String
+  priceYen   Int?
+  imageUrl   String?
+  productUrl String   @unique
+  inStock    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  shopId  Int
+  shop    Shop  @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  brandId Int
+  brand   Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId])
+  @@index([shopId])
+  @@map("products")
+}
