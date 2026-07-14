@@ -26,6 +26,20 @@ const ALL_BRANDS = "*";
  */
 const SHOPIFY_SHOPS: Array<{ key: string; name: string; url: string }> = [
   { key: "diverse", name: "diverse", url: "https://www.diverse-web.com/" },
+  // 以下皆已驗證 /products.json 可用 (2026-07)。注意部分店在子網域。
+  { key: "southstore", name: "SOUTH STORE", url: "https://southstore-online.com/" },
+  { key: "yokosakamoto", name: "YOKO SAKAMOTO", url: "https://yokosakamoto.jp/" },
+  { key: "morls", name: "MORLS", url: "https://morls.net/" },
+  { key: "ref", name: "ref.", url: "https://www.refnet.tv/" },
+  { key: "cootie", name: "COOTIE", url: "https://cootieproductions.jp/" },
+  { key: "freshservice", name: "Fresh Service", url: "https://eng.freshservice.jp/" },
+  { key: "maidens", name: "MAIDENS SHOP", url: "https://store-maiden.com/" },
+  { key: "gr8", name: "GR8", url: "https://store.gr8.jp/" },
+  { key: "diffusion", name: "Diffusion", url: "https://shop.diffusion.jp/" },
+  { key: "ciacura", name: "ciacura", url: "https://shop.ciacura.jp/" },
+  { key: "figureonline", name: "FIGURE ONLINE", url: "https://figure-online.net/" },
+  // 經銷站，涵蓋 NICENESS / MAATEE&SONS / A.PRESSE 等無自營 EC 的品牌
+  { key: "article", name: "ARTICLE", url: "https://oneness-article.com/" },
 ];
 
 const registry: Record<string, ShopScraper> = {

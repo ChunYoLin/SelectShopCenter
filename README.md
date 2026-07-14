@@ -2,8 +2,27 @@
 
 搜尋品牌（如 AURALEE），一次瀏覽多家日本選品店（ARKnets、diverse、LOFTMAN…）的商品。
 
-> **目前進度**：三家選品店爬蟲（ARKnets / diverse / LOFTMAN）+ Next.js 前端
-> （品牌搜尋、跨店比較、庫存篩選）皆已可運作。
+> **目前進度**：15 家選品店爬蟲（ARKnets / LOFTMAN + 13 家 Shopify）+ Next.js 前端
+> （品牌搜尋、跨店比較、庫存篩選、排序）皆已可運作，並有每日 cron 自動更新。
+
+## 選品店平台盤點（2026-07）
+
+批次盤點 42 家日本選品店的 EC 平台，決定接入優先序：
+
+| 平台 | 家數 | 抓取方式 | 狀態 |
+|---|---|---|---|
+| **Shopify** | 13 | 通用 `ShopifyScraper`（`/products.json`） | ✅ 已接入 |
+| **futureshop**（ASP.NET，同 ARKnets/LOFTMAN） | 4 | Playwright/Cheerio + `/c/`、`/g/g{code}/` | ARKnets/LOFTMAN 已接，其餘待接 |
+| **Salesnauts / ItemBox** | 3-4 | 規則化 `/products/detail/{id}`，可共用解析器 | 待接 |
+| **colorme (Shop-Pro)** | 9 | HTML 解析 `?mode=`，可共用解析器 | 待接 |
+| **makeshop / BASE / ShopServe / EC-CUBE / custom** | 數家 | 各自平台，需個別處理 | 待評估 |
+| **樂天 / 百貨（三越伊勢丹、JUN、NOLLEY'S）** | 數家 | 反爬強、商品重疊 | 建議略過 |
+
+已接入的 13 家 Shopify：diverse、SOUTH STORE、YOKO SAKAMOTO、MORLS、ref.、
+COOTIE、Fresh Service、MAIDENS SHOP、GR8、Diffusion、ciacura、FIGURE ONLINE、
+ARTICLE（經銷站，涵蓋 NICENESS / MAATEE&SONS / A.PRESSE）。
+
+> 新增一家 Shopify 店＝在 `backend/src/index.ts` 的 `SHOPIFY_SHOPS` 加一行。
 
 ## 專案結構
 
