@@ -33,4 +33,10 @@ export interface ShopScraper {
    * 避免每個品牌各掃一次整個目錄。回傳的 Map 以「輸入的品牌名稱」為 key。
    */
   scrapeMany?(brands: string[]): Promise<Map<string, ScrapedProduct[]>>;
+  /**
+   * (選用) 一次爬取「站上所有品牌」。
+   * 適用於能列出完整品牌清單的站台 (如 diverse Shopify)：一趟掃描就把所有 vendor
+   * 分桶回傳。可用 minCount 過濾掉商品數過少的雜訊品牌。
+   */
+  scrapeAllBrands?(minCount?: number): Promise<Map<string, ScrapedProduct[]>>;
 }

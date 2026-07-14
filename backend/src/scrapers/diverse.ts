@@ -41,7 +41,7 @@ export class DiverseScraper implements ShopScraper {
   }
 
   /**
-   * 一次掃描整個 Shopify 目錄，把多個品牌 (vendor) 一起分桶回傳。
+   * 一次掃描整個 Shopify 目錄，把指定的多個品牌 (vendor) 一起分桶回傳。
    * 不論要幾個品牌，都只掃一趟目錄 (~90 頁)，大幅省下重複掃描。
    */
   public async scrapeMany(brands: string[]): Promise<Map<string, ScrapedProduct[]>> {
@@ -49,10 +49,48 @@ export class DiverseScraper implements ShopScraper {
     const wanted = new Map<string, string>();
     for (const b of brands) wanted.set(normalizeBrandName(b), b);
 
-    // 每個品牌各自的去重桶
     const buckets = new Map<string, Map<string, ScrapedProduct>>();
     for (const b of brands) buckets.set(b, new Map());
 
+    await this.crawlCatalog((p) => {
+      const origName = wanted.get(normalizeBrandName(p.vendor));
+      if (!origName) return; // 非目標品牌
+      const sp = this.toScrapedProduct(p);
+      buckets.get(origName)!.set(sp.productUrl, sp);
+    });
+
+    return this.bucketsToResult(buckets);
+  }
+
+  /**
+   * 一次掃描整個目錄，把「站上所有品牌」分桶回傳。
+   * minCount：商品數少於此值的品牌會被略過 (過濾一次性聯名 / 雜訊品牌)。
+   */
+  public async scrapeAllBrands(minCount = 1): Promise<Map<string, ScrapedProduct[]>> {
+    const buckets = new Map<string, Map<string, ScrapedProduct>>();
+
+    await this.crawlCatalog((p) => {
+      const vendor = normalizeText(p.vendor);
+      if (!vendor) return;
+      const sp = this.toScrapedProduct(p);
+      let bucket = buckets.get(vendor);
+      if (!bucket) {
+        bucket = new Map();
+        buckets.set(vendor, bucket);
+      }
+      bucket.set(sp.productUrl, sp);
+    });
+
+    // 套用最少商品數門檻
+    for (const [vendor, bucket] of buckets) {
+      if (bucket.size < minCount) buckets.delete(vendor);
+    }
+    console.log(`[diverse] 共發現 ${buckets.size} 個品牌 (門檻 ≥${minCount} 筆)`);
+    return this.bucketsToResult(buckets);
+  }
+
+  /** 分頁掃描整個 Shopify 目錄，對每個商品呼叫 onProduct */
+  private async crawlCatalog(onProduct: (p: ShopifyProduct) => void): Promise<void> {
     const maxPages = config.scraper.shopifyMaxPages;
     let reachedEnd = false;
     let lastPage = 0;
@@ -68,18 +106,8 @@ export class DiverseScraper implements ShopScraper {
         break;
       }
       total += products.length;
-
-      let hit = 0;
-      for (const p of products) {
-        const origName = wanted.get(normalizeBrandName(p.vendor));
-        if (!origName) continue; // 非目標品牌
-        const sp = this.toScrapedProduct(p);
-        buckets.get(origName)!.set(sp.productUrl, sp);
-        hit++;
-      }
-      if (page % 10 === 0 || hit > 0) {
-        console.log(`[diverse] 第 ${page} 頁: 掃 ${total} 筆，本頁命中 ${hit} 筆`);
-      }
+      for (const p of products) onProduct(p);
+      if (page % 10 === 0) console.log(`[diverse] 第 ${page} 頁: 已掃 ${total} 筆`);
 
       await politeDelay(); // 禮貌延遲，降低被限流機率
     }
@@ -90,10 +118,14 @@ export class DiverseScraper implements ShopScraper {
           `資料可能不完整；請調高 SHOPIFY_MAX_PAGES。`,
       );
     }
+  }
 
+  /** 把「去重桶」轉為回傳用的陣列 Map，並記錄各品牌筆數 */
+  private bucketsToResult(
+    buckets: Map<string, Map<string, ScrapedProduct>>,
+  ): Map<string, ScrapedProduct[]> {
     const result = new Map<string, ScrapedProduct[]>();
     for (const [brand, bucket] of buckets) {
-      console.log(`[diverse] ${brand}: ${bucket.size} 筆`);
       result.set(brand, [...bucket.values()]);
     }
     return result;

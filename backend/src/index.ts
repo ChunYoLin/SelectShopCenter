@@ -15,6 +15,9 @@ import type { ScrapedProduct, ScrapeTarget, ShopScraper } from "./scrapers/types
  * 之後跑 `npm run scrape:all` 就會一併爬到。
  */
 
+/** targets 用萬用字元：代表「爬該店所有品牌」(需 scraper 支援 scrapeAllBrands) */
+const ALL_BRANDS = "*";
+
 const registry: Record<string, ShopScraper> = {
   arknets: new ArknetsScraper(),
   diverse: new DiverseScraper(),
@@ -33,24 +36,8 @@ const targets: Record<string, ScrapeTarget[]> = {
   arknets: [
     { brand: "COMOLI", listUrl: "https://www.arknets.co.jp/brand/B1023/" },
   ],
-  // diverse 為 Shopify 商店：用 scrapeMany 一趟掃描整個目錄，一次分桶下列所有品牌。
-  // (vendor 名稱大小寫不拘，會正規化比對；不存在的品牌會回傳 0 筆並記錄。)
-  diverse: [
-    "AURALEE",
-    "COMOLI",
-    "Graphpaper",
-    "MARKAWARE",
-    "A.PRESSE",
-    "ATON",
-    "CIOTA",
-    "HERILL",
-    "Hender Scheme",
-    "NEAT",
-    "TEATORA",
-    "DAIWA PIER39",
-    "YOKO SAKAMOTO",
-    "beautiful people",
-  ].map((brand) => ({ brand, listUrl: "https://www.diverse-web.com/" })),
+  // diverse 為 Shopify 商店：以萬用字元 "*" 一趟掃描整個目錄，收錄「站上所有品牌」。
+  diverse: [{ brand: ALL_BRANDS, listUrl: "https://www.diverse-web.com/" }],
   // LOFTMAN 品牌分類頁 (伺服器端渲染)；已確認販售 AURALEE。
   loftman: [
     { brand: "AURALEE", listUrl: "https://loftman.co.jp/shop/c/cauralee/" },
@@ -67,24 +54,41 @@ async function scrapeShop(shopKey: string): Promise<void> {
     return;
   }
 
-  console.log(`\n===== 開始爬取 ${scraper.shopName} (${shopTargets.length} 個品牌) =====`);
+  // 目標為萬用字元 "*" → 爬「站上所有品牌」(需 scraper 支援 scrapeAllBrands)
+  const allBrandsMode =
+    shopTargets.length === 1 && shopTargets[0]!.brand === ALL_BRANDS;
 
-  // 支援 scrapeMany 的店 (如 diverse)：一趟掃描把多品牌一起抓回，再逐一寫入
-  const brandProducts = scraper.scrapeMany
-    ? await scraper.scrapeMany(shopTargets.map((t) => t.brand))
-    : await scrapePerTarget(scraper, shopTargets);
+  let brandProducts: Map<string, ScrapedProduct[]>;
+  if (allBrandsMode && scraper.scrapeAllBrands) {
+    console.log(`\n===== 開始爬取 ${scraper.shopName} (全部品牌) =====`);
+    brandProducts = await scraper.scrapeAllBrands();
+  } else {
+    console.log(`\n===== 開始爬取 ${scraper.shopName} (${shopTargets.length} 個品牌) =====`);
+    // 支援 scrapeMany 的店 (如 diverse)：一趟掃描把多品牌一起抓回，再逐一寫入
+    brandProducts = scraper.scrapeMany
+      ? await scraper.scrapeMany(shopTargets.map((t) => t.brand))
+      : await scrapePerTarget(scraper, shopTargets);
+  }
 
-  for (const target of shopTargets) {
-    const products = brandProducts.get(target.brand) ?? [];
+  let totalCreated = 0;
+  let totalUpdated = 0;
+  for (const [brand, products] of brandProducts) {
     if (products.length === 0) {
-      console.warn(`[${scraper.shopName}] ${target.brand} 沒有抓到任何商品，略過寫入。`);
+      if (!allBrandsMode) {
+        console.warn(`[${scraper.shopName}] ${brand} 沒有抓到任何商品，略過寫入。`);
+      }
       continue;
     }
-    const result = await persistProducts(scraper, target.brand, products);
+    const result = await persistProducts(scraper, brand, products);
+    totalCreated += result.created;
+    totalUpdated += result.updated;
     console.log(
-      `[${scraper.shopName}] ${target.brand} 寫入完成 → 新增 ${result.created} 筆、更新 ${result.updated} 筆`,
+      `[${scraper.shopName}] ${brand} → 新增 ${result.created}、更新 ${result.updated}`,
     );
   }
+  console.log(
+    `[${scraper.shopName}] 完成：共 ${brandProducts.size} 個品牌，新增 ${totalCreated}、更新 ${totalUpdated} 筆`,
+  );
 }
 
 /** 不支援 scrapeMany 的店：逐一品牌各自爬取，組成與 scrapeMany 相同的 Map 結構 */

@@ -101,9 +101,26 @@ npm run scrape:loftman   # 只爬 LOFTMAN (Cheerio，純 fetch)
 3. 跑 `npm run scrape:all` — 前端的品牌選單／清單是**依 DB 動態產生**，新品牌會自動出現。
 
 > **一次掃描、多品牌入庫**：diverse 因為要掃整個 Shopify 目錄，實作了選用的
-> `scrapeMany(brands[])`，**一趟掃描就把多個品牌一起分桶入庫**（`targets.diverse`
-> 是一份品牌清單），不必每個品牌各掃一次目錄。其他站沒實作時，`index.ts` 會自動
-> 退回「逐品牌」方式，介面一致。
+> `scrapeMany(brands[])`，**一趟掃描就把多個品牌一起分桶入庫**，不必每個品牌各掃一次目錄。
+> 其他站沒實作時，`index.ts` 會自動退回「逐品牌」方式，介面一致。
+>
+> **收錄所有品牌**：`targets.diverse` 設為萬用字元 `"*"`，會呼叫 `scrapeAllBrands()`
+> 收錄 diverse 站上**所有 vendor**（約 100+ 品牌 / ~22,000 件）。
+
+### 自動更新（每日 cron）
+
+前端只讀 DB，不會即時抓新品，因此以 cron 每天重跑爬蟲讓資料保持新鮮：
+
+```bash
+# 包裝腳本 (載入 .env、設定 PATH、跑 scrape:all、寫 log 到 backend/logs/)
+backend/scripts/daily-scrape.sh
+
+# crontab 每天 03:30 執行
+30 3 * * * /path/to/backend/scripts/daily-scrape.sh
+```
+
+`scrape:all` 以 `productUrl` upsert：新品→新增、價格/庫存變動→更新。
+（目前不會自動刪除已下架商品，會保留為舊資料。）
 
 ### 5. 啟動前端
 
