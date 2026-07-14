@@ -4,14 +4,14 @@ import { normalizeBrandName, normalizeText, parseYen } from "../utils/parse";
 import type { ScrapedProduct, ScrapeTarget, ShopScraper } from "./types";
 
 /**
- * diverse (https://www.diverse-web.com/) 爬蟲。
+ * 通用 Shopify 選品店爬蟲引擎。
  *
- * 已對照實際站台驗證 (2026-07)：
- *  - 這是一個 **Shopify** 商店 → 直接使用 Shopify 公開的 `/products.json` API，
- *    取得結構化資料，**不需要瀏覽器 (Playwright)**，比 DOM 解析更穩定。
- *  - 該站未建立 per-vendor collection，故無法用 `/collections/{brand}` 直取單一品牌；
- *    改為分頁掃全目錄 (250 筆/頁) 後以 `vendor` 欄位過濾。
- *  - 站台在高頻請求時會回 HTTP 429，已由 fetchJson 的退避重試 + politeDelay 處理。
+ * 任何 Shopify 商店都能重用：直接打公開的 `/products.json` API 取結構化資料，
+ * 不需瀏覽器。新增一家 Shopify 店只要 `new ShopifyScraper(name, url)` 即可。
+ *
+ * 已於 diverse (diverse-web.com) 實測：
+ *  - 分頁掃全目錄 (250 筆/頁)，以 `vendor` 欄位分桶成品牌。
+ *  - 高頻請求會回 HTTP 429，由 fetchJson 退避重試 + politeDelay 處理。
  */
 
 /** Shopify products.json 回應中，我們用得到的欄位 */
@@ -30,9 +30,15 @@ interface ProductsJsonResponse {
   products: ShopifyProduct[];
 }
 
-export class DiverseScraper implements ShopScraper {
-  public readonly shopName = "diverse";
-  public readonly shopUrl = "https://www.diverse-web.com/";
+export class ShopifyScraper implements ShopScraper {
+  /**
+   * @param shopName  選品店名稱 (DB 主鍵 / CLI key)
+   * @param shopUrl   商店首頁 (結尾需含 "/")，例: "https://www.diverse-web.com/"
+   */
+  constructor(
+    public readonly shopName: string,
+    public readonly shopUrl: string,
+  ) {}
 
   /** 單一品牌 (相容 ShopScraper 介面)：內部走多品牌流程再取該品牌 */
   public async scrape(target: ScrapeTarget): Promise<ScrapedProduct[]> {
@@ -42,7 +48,7 @@ export class DiverseScraper implements ShopScraper {
 
   /**
    * 一次掃描整個 Shopify 目錄，把指定的多個品牌 (vendor) 一起分桶回傳。
-   * 不論要幾個品牌，都只掃一趟目錄 (~90 頁)，大幅省下重複掃描。
+   * 不論要幾個品牌，都只掃一趟目錄，大幅省下重複掃描。
    */
   public async scrapeMany(brands: string[]): Promise<Map<string, ScrapedProduct[]>> {
     // 正規化品牌名 → 原始輸入名 (回傳 Map 用原始名當 key)
@@ -85,7 +91,7 @@ export class DiverseScraper implements ShopScraper {
     for (const [vendor, bucket] of buckets) {
       if (bucket.size < minCount) buckets.delete(vendor);
     }
-    console.log(`[diverse] 共發現 ${buckets.size} 個品牌 (門檻 ≥${minCount} 筆)`);
+    console.log(`[${this.shopName}] 共發現 ${buckets.size} 個品牌 (門檻 ≥${minCount} 筆)`);
     return this.bucketsToResult(buckets);
   }
 
@@ -107,20 +113,20 @@ export class DiverseScraper implements ShopScraper {
       }
       total += products.length;
       for (const p of products) onProduct(p);
-      if (page % 10 === 0) console.log(`[diverse] 第 ${page} 頁: 已掃 ${total} 筆`);
+      if (page % 10 === 0) console.log(`[${this.shopName}] 第 ${page} 頁: 已掃 ${total} 筆`);
 
       await politeDelay(); // 禮貌延遲，降低被限流機率
     }
 
     if (!reachedEnd) {
       console.warn(
-        `[diverse] ⚠️ 掃描於第 ${lastPage} 頁達到上限 (SHOPIFY_MAX_PAGES=${maxPages}) 仍未到目錄尾端，` +
-          `資料可能不完整；請調高 SHOPIFY_MAX_PAGES。`,
+        `[${this.shopName}] ⚠️ 掃描於第 ${lastPage} 頁達到上限 (SHOPIFY_MAX_PAGES=${maxPages}) ` +
+          `仍未到目錄尾端，資料可能不完整；請調高 SHOPIFY_MAX_PAGES。`,
       );
     }
   }
 
-  /** 把「去重桶」轉為回傳用的陣列 Map，並記錄各品牌筆數 */
+  /** 把「去重桶」轉為回傳用的陣列 Map */
   private bucketsToResult(
     buckets: Map<string, Map<string, ScrapedProduct>>,
   ): Map<string, ScrapedProduct[]> {

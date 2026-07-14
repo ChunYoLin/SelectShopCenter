@@ -1,7 +1,7 @@
 import { prisma } from "./lib/prisma";
 import { persistProducts } from "./storage";
 import { ArknetsScraper } from "./scrapers/arknets";
-import { DiverseScraper } from "./scrapers/diverse";
+import { ShopifyScraper } from "./scrapers/shopify";
 import { LoftmanScraper } from "./scrapers/loftman";
 import type { ScrapedProduct, ScrapeTarget, ShopScraper } from "./scrapers/types";
 
@@ -11,38 +11,47 @@ import type { ScrapedProduct, ScrapeTarget, ShopScraper } from "./scrapers/types
  *   ts-node src/index.ts arknets   # 只爬單一店
  *   ts-node src/index.ts all       # 爬所有已註冊的店 (npm run scrape:all)
  *
- * 新增選品店時：實作 ShopScraper → 在 registry 加一筆 → 在 targets 加要爬的品牌，
+ * 新增選品店：
+ *  - Shopify 站 → 只要在 SHOPIFY_SHOPS 加一行 (name + url)，自動收錄該站所有品牌。
+ *  - 其他平台 → 實作 ShopScraper，加進 registry + targets。
  * 之後跑 `npm run scrape:all` 就會一併爬到。
  */
 
 /** targets 用萬用字元：代表「爬該店所有品牌」(需 scraper 支援 scrapeAllBrands) */
 const ALL_BRANDS = "*";
 
+/**
+ * Shopify 選品店清單 —— 新增一家 Shopify 店只要在此加一行。
+ * 用通用 ShopifyScraper 引擎，預設以萬用字元收錄該站「所有品牌」。
+ */
+const SHOPIFY_SHOPS: Array<{ key: string; name: string; url: string }> = [
+  { key: "diverse", name: "diverse", url: "https://www.diverse-web.com/" },
+];
+
 const registry: Record<string, ShopScraper> = {
   arknets: new ArknetsScraper(),
-  diverse: new DiverseScraper(),
   loftman: new LoftmanScraper(),
 };
 
 /**
  * 每家店要爬的目標 (品牌 → 品牌頁)。
- *
- * 註：實測 ARKnets 目前「未販售 AURALEE」(不在其 479 個品牌清單內)，
- *     故改用 ARKnets 實際引進、且已驗證品牌代碼的品牌作為範例。
- *     品牌頁網址格式：https://www.arknets.co.jp/brand/{BRAND_CODE}/
- *     其他已確認代碼：MARKAWARE=B0441, GRAPHPAPER=B1126, A.P.C.=B0515, ACRONYM=B1160
+ * ARKnets 實測未販售 AURALEE，故以 COMOLI 為例 (品牌頁 /brand/{CODE}/)。
  */
 const targets: Record<string, ScrapeTarget[]> = {
   arknets: [
     { brand: "COMOLI", listUrl: "https://www.arknets.co.jp/brand/B1023/" },
   ],
-  // diverse 為 Shopify 商店：以萬用字元 "*" 一趟掃描整個目錄，收錄「站上所有品牌」。
-  diverse: [{ brand: ALL_BRANDS, listUrl: "https://www.diverse-web.com/" }],
   // LOFTMAN 品牌分類頁 (伺服器端渲染)；已確認販售 AURALEE。
   loftman: [
     { brand: "AURALEE", listUrl: "https://loftman.co.jp/shop/c/cauralee/" },
   ],
 };
+
+// 註冊所有 Shopify 店 (全部品牌模式)
+for (const s of SHOPIFY_SHOPS) {
+  registry[s.key] = new ShopifyScraper(s.name, s.url);
+  targets[s.key] = [{ brand: ALL_BRANDS, listUrl: s.url }];
+}
 
 /** 爬取單一選品店的所有目標品牌並寫入資料庫 */
 async function scrapeShop(shopKey: string): Promise<void> {
