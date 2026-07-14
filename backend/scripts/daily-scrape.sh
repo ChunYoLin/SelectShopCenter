@@ -15,17 +15,24 @@ set -a
 [ -f "${BACKEND_DIR}/.env" ] && . "${BACKEND_DIR}/.env"
 set +a
 
-# 讓 cron 的精簡 PATH 找得到 node / npm (nvm 安裝路徑)
-export PATH="/usr/local/bin:/usr/bin:/bin:${HOME}/.nvm/versions/node/$(ls -t "${HOME}/.nvm/versions/node" 2>/dev/null | head -1)/bin:${PATH}"
+# 讓 cron 的精簡 PATH 找得到 node / npm。
+# nvm 路徑必須擺「最前面」— 系統 /usr/bin/node 是舊版 (v18)，會導致 undici fetch 報錯，
+# 必須優先用 nvm 的新版 node。
+NVM_BIN="${HOME}/.nvm/versions/node/$(ls -t "${HOME}/.nvm/versions/node" 2>/dev/null | head -1)/bin"
+export PATH="${NVM_BIN}:/usr/local/bin:/usr/bin:/bin:${PATH}"
 
 cd "${BACKEND_DIR}"
 {
   echo "===== $(date -Is) scrape:all 開始 ====="
   # scrape:all 會依 registry 逐店爬取；npm script 內已設好 ARKnets 需要的 LD_LIBRARY_PATH
-  if npm run scrape:all; then
+  set +e
+  npm run scrape:all
+  rc=$?
+  set -e
+  if [ "${rc}" -eq 0 ]; then
     echo "===== $(date -Is) 完成 ====="
   else
-    echo "===== $(date -Is) 失敗 (exit $?) ====="
+    echo "===== $(date -Is) 失敗 (exit ${rc}) ====="
     exit 1
   fi
 } >>"${LOG_FILE}" 2>&1
