@@ -3,6 +3,9 @@ import { persistProducts } from "./storage";
 import { ArknetsScraper } from "./scrapers/arknets";
 import { ShopifyScraper } from "./scrapers/shopify";
 import { LoftmanScraper } from "./scrapers/loftman";
+import { FutureshopCcScraper } from "./scrapers/futureshop-cc";
+import { SalesnautsScraper } from "./scrapers/salesnauts";
+import { ShopProScraper } from "./scrapers/shoppro";
 import type { ScrapedProduct, ScrapeTarget, ShopScraper } from "./scrapers/types";
 
 /**
@@ -64,6 +67,57 @@ const targets: Record<string, ScrapeTarget[]> = {
 // 註冊所有 Shopify 店 (全部品牌模式)
 for (const s of SHOPIFY_SHOPS) {
   registry[s.key] = new ShopifyScraper(s.name, s.url);
+  targets[s.key] = [{ brand: ALL_BRANDS, listUrl: s.url }];
+}
+
+/**
+ * futureshop「Commerce Creator」(fs-c-*) 選品店 —— 以分類根頁分頁掃描、品牌取自 catch-copy。
+ * 新增一家只要加一行 (含要掃描的分類路徑)。
+ */
+const FUTURESHOP_CC_SHOPS: Array<{
+  key: string;
+  name: string;
+  url: string;
+  categories: string[];
+}> = [
+  {
+    key: "1ldk",
+    name: "1LDK",
+    url: "https://onlinestore.1ldkshop.com/",
+    categories: ["/c/mens", "/c/womans", "/c/goods", "/c/kids"],
+  },
+  { key: "makes", name: "MAKES", url: "https://www.makes.jp/", categories: ["/c/mens", "/c/womens"] },
+];
+for (const s of FUTURESHOP_CC_SHOPS) {
+  registry[s.key] = new FutureshopCcScraper(s.name, s.url, s.categories);
+  targets[s.key] = [{ brand: ALL_BRANDS, listUrl: s.url }];
+}
+
+/** Salesnauts / ItemBox 選品店 (品牌乾淨地在 span.brand-name)；一行一家。 */
+const SALESNAUTS_SHOPS: Array<{ key: string; name: string; url: string }> = [
+  { key: "acrmtsm", name: "ACRMTSM", url: "https://www.acrmtsm.jp/" },
+  { key: "mark", name: "MARK", url: "https://www.mark.style/" },
+  { key: "chemical", name: "chemical conbination", url: "https://www.chemical-c.co.jp/" },
+];
+for (const s of SALESNAUTS_SHOPS) {
+  registry[s.key] = new SalesnautsScraper(s.name, s.url);
+  targets[s.key] = [{ brand: ALL_BRANDS, listUrl: s.url }];
+}
+
+/** colorme / Shop-Pro 選品店 (EUC-JP，品牌由標題【…】推斷)；一行一家。 */
+const SHOPPRO_SHOPS: Array<{ key: string; name: string; url: string }> = [
+  { key: "waste", name: "WASTE", url: "https://waste-tokyo.jp/" },
+  { key: "cotyle", name: "COTYLE", url: "https://cotyle.com/" },
+  { key: "thirtythirty", name: "THIRTY' THIRTY' STORE", url: "https://thirtythirty-store.com/" },
+  { key: "kiretto", name: "kiretto", url: "https://kiretto.shop-pro.jp/" },
+  { key: "mizuoka", name: "mizuoka", url: "https://mizuoka.shop-pro.jp/" },
+  { key: "hazy", name: "hazy", url: "https://h-a-z-y.shop/" },
+  { key: "kink", name: "kink", url: "https://kink-nagoya.shop-pro.jp/" },
+  { key: "attempt", name: "Attempt Kyoto", url: "https://store-attempt.jp/" },
+  { key: "chantilly", name: "CHANTILLY-2F", url: "https://chantilly-2f.com/" },
+];
+for (const s of SHOPPRO_SHOPS) {
+  registry[s.key] = new ShopProScraper(s.name, s.url);
   targets[s.key] = [{ brand: ALL_BRANDS, listUrl: s.url }];
 }
 

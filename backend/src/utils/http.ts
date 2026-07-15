@@ -55,12 +55,19 @@ export async function fetchJson<T>(
   return (await res.json()) as T;
 }
 
-/** 取得 HTML 純文字，內建逾時與退避重試。適用於伺服器端渲染的站台 (如 LOFTMAN)。 */
+/**
+ * 取得 HTML 純文字，內建逾時與退避重試。適用於伺服器端渲染的站台 (如 LOFTMAN)。
+ * encoding：非 UTF-8 站台需指定 (例: Shop-Pro 為 "euc-jp")，否則日文會亂碼。
+ */
 export async function fetchHtml(
   url: string,
-  opts: { retries?: number; timeoutMs?: number } = {},
+  opts: { retries?: number; timeoutMs?: number; encoding?: string } = {},
 ): Promise<string> {
   const res = await fetchWithRetry(url, "text/html", opts);
+  if (opts.encoding && opts.encoding.toLowerCase() !== "utf-8") {
+    const buf = await res.arrayBuffer();
+    return new TextDecoder(opts.encoding).decode(buf);
+  }
   return res.text();
 }
 
