@@ -94,7 +94,7 @@ export default function SearchControls({
             }}
             className="rounded-lg border border-neutral-300 px-2 py-2 text-sm shadow-sm focus:border-neutral-900 focus:outline-none"
           >
-            <option value="">選擇品牌…（{brands.length}）</option>
+            <option value="">選擇熱門品牌…</option>
             {brands.map((b) => (
               <option key={b.name} value={b.name}>
                 {b.name}（{b.count}）

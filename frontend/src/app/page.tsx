@@ -62,6 +62,12 @@ export default async function HomePage({
     name: b.name,
     count: b._count.products,
   }));
+  // 搜尋列的 datalist / 選單只放「商品數最多」的前 300 個常見品牌 (避免上千 option)；
+  // 完整清單在 /brands 頁瀏覽/搜尋。
+  const topBrandsForControls: BrandOption[] = [...brandOptions]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 300)
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const selectedShop = (searchParams.shop ?? "").trim();
 
@@ -113,15 +119,20 @@ export default async function HomePage({
 
   return (
     <main className="space-y-8">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">日本選品店情報聚合</h1>
-        <p className="text-sm text-neutral-500">
-          搜尋品牌，一次比較 ARKnets、diverse、LOFTMAN 等選品店的商品。
-        </p>
+      <header className="flex items-baseline justify-between">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight">日本選品店情報聚合</h1>
+          <p className="text-sm text-neutral-500">
+            搜尋品牌，一次比較各家日本選品店的商品。
+          </p>
+        </div>
+        <a href="/brands" className="text-sm text-neutral-500 hover:text-neutral-900">
+          品牌一覽 →
+        </a>
       </header>
 
       <SearchControls
-        brands={brandOptions}
+        brands={topBrandsForControls}
         initialBrand={brandQuery}
         initialInStock={inStockOnly}
         initialView={view}
@@ -312,13 +323,15 @@ function ProductCard({ product }: { product: ProductView }) {
 }
 
 function EmptyState({ brands }: { brands: BrandOption[] }) {
+  // 只在首頁秀「商品數最多」的前 24 個品牌，完整清單導去 /brands
+  const top = [...brands].sort((a, b) => b.count - a.count).slice(0, 24);
   return (
     <div className="rounded-lg border border-dashed border-neutral-300 p-8">
       <p className="text-center text-sm text-neutral-500">
-        目前收錄 {brands.length} 個品牌，點選任一品牌開始瀏覽：
+        目前收錄 {brands.length} 個品牌，熱門品牌：
       </p>
       <div className="mt-4 flex flex-wrap justify-center gap-2">
-        {brands.map((b) => (
+        {top.map((b) => (
           <a
             key={b.name}
             href={`/?brand=${encodeURIComponent(b.name)}`}
@@ -329,6 +342,11 @@ function EmptyState({ brands }: { brands: BrandOption[] }) {
           </a>
         ))}
       </div>
+      <p className="mt-4 text-center text-sm">
+        <a href="/brands" className="text-neutral-900 underline hover:no-underline">
+          瀏覽全部 {brands.length} 個品牌 →
+        </a>
+      </p>
     </div>
   );
 }
