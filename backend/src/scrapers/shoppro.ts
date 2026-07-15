@@ -111,17 +111,33 @@ export class ShopProScraper implements ShopScraper {
       const card = $(a).closest("li");
       const scope = card.length ? card : $(a).closest("div");
       const img = scope.find("img").first();
-      const alt = img.attr("alt") ?? "";
-      const name = normalizeText(alt || $(a).text());
+
+      // 名稱：優先 img alt；否則取卡片內任一「有文字」的 pid 連結
+      // (有些佈景圖片連結無 alt、商品名在另一個 pid 連結)
+      let name = normalizeText(img.attr("alt") ?? "");
+      if (name === "") {
+        scope.find('a[href*="pid="]').each((_j, x) => {
+          if (name === "") name = normalizeText($(x).text());
+        });
+      }
       if (name === "") return;
 
-      const priceText = (scope.text().match(/[\d,]+\s*円/) ?? [""])[0];
+      // 價格：先抓 "12,000円" 的第一個數字 (稅前)，退回 "¥12,000" 格式 (如 kink 無「円」)
+      const priceRaw = scope.text();
+      const priceMatch = priceRaw.match(/([\d,]+)\s*円/) ?? priceRaw.match(/[¥￥]\s*([\d,]+)/);
+      const priceText = priceMatch?.[1] ?? "";
       const soldOut = /sold\s*out|売り切れ|在庫なし|is-soldout|mask-soldout/i.test(
         scope.html() ?? "",
       );
+      // 品牌：先試標題【…】；再退回 .category-name-list (productlist 佈景的品牌欄)；再退回店名
+      let brand = this.brandFromTitle(name);
+      if (brand === this.shopName) {
+        const catName = normalizeText(scope.find(".category-name-list").first().text());
+        if (catName) brand = catName;
+      }
 
       out.push({
-        brand: this.brandFromTitle(name),
+        brand,
         sp: {
           name,
           priceYen: parseYen(priceText),
